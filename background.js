@@ -96,7 +96,8 @@ async function handleUsageLimitsIntercepted(organizationId, resetsAt, utilizatio
   // Save current details to storage
   await chrome.storage.local.set({
     organizationId,
-    lastResetSeen: resetsAt
+    lastResetSeen: resetsAt,
+    utilization: utilization !== undefined ? utilization : null
   });
 
   console.log('[Claude Limits Auto-Reset] Intercepted Details saved to storage:', {

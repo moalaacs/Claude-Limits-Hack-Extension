@@ -17,6 +17,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const labelSessionStatus = document.getElementById('session-status');
   const labelLastSync = document.getElementById('last-sync');
   const labelTargetDetails = document.getElementById('target-details');
+  const utilizationVal = document.getElementById('utilization-val');
+  const utilizationFill = document.getElementById('utilization-fill');
   const btnSync = document.getElementById('btn-sync');
   const toast = document.getElementById('toast');
 
@@ -28,7 +30,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     'specificChatUuid', 
     'lastExecutionStatus',
     'sessionStatus',
-    'lastSyncTime'
+    'lastSyncTime',
+    'utilization'
   ]);
 
   // Set default values if not defined
@@ -52,6 +55,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 2. Render dynamic status details
   updateStatusDisplay(config.lastExecutionStatus, mode, specificUuid);
   updateSessionDisplay(config.sessionStatus, config.lastSyncTime);
+  updateUtilizationDisplay(config.utilization);
   renderNextAlarm();
 
   // 3. Set up event listeners for inputs
@@ -101,10 +105,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       const freshConfig = await chrome.storage.local.get([
         'sessionStatus',
         'lastSyncTime',
-        'lastExecutionStatus'
+        'lastExecutionStatus',
+        'utilization'
       ]);
 
       updateSessionDisplay(freshConfig.sessionStatus, freshConfig.lastSyncTime);
+      updateUtilizationDisplay(freshConfig.utilization);
       updateStatusDisplay(
         freshConfig.lastExecutionStatus, 
         radioSpecific.checked ? 'specific' : 'new', 
@@ -205,6 +211,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       labelLastSync.textContent = new Date(lastSync).toLocaleTimeString();
     } else {
       labelLastSync.textContent = 'Never';
+    }
+  }
+
+  /**
+   * Update the visual progress bar based on utilization percentage
+   */
+  function updateUtilizationDisplay(pct) {
+    const val = pct !== undefined && pct !== null ? Math.round(pct) : 0;
+    utilizationVal.textContent = `${val}%`;
+    utilizationFill.style.width = `${val}%`;
+
+    utilizationFill.classList.remove('warning', 'danger');
+
+    if (val >= 90) {
+      utilizationFill.classList.add('danger');
+    } else if (val >= 70) {
+      utilizationFill.classList.add('warning');
     }
   }
 

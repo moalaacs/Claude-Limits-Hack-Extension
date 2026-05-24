@@ -259,6 +259,59 @@
       to { transform: rotate(360deg); }
     }
 
+    /* Progress Bar Area */
+    .progress-container {
+      background: rgba(0, 0, 0, 0.15);
+      border-radius: 10px;
+      padding: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      margin-bottom: 14px;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 11px;
+    }
+
+    .progress-label {
+      color: #94a3b8;
+      font-weight: 500;
+    }
+
+    .progress-value-label {
+      color: #cbd5e1;
+      font-weight: 600;
+    }
+
+    .progress-bar-bg {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 3px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.02);
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #6366f1, #a855f7);
+      border-radius: 3px;
+      width: 0%;
+      transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .progress-bar-fill.warning {
+      background: linear-gradient(90deg, #f59e0b, #ef4444);
+    }
+
+    .progress-bar-fill.danger {
+      background: linear-gradient(90deg, #ef4444, #b91c1c);
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+    }
+
     /* Toast notification */
     .toast {
       position: absolute;
@@ -320,7 +373,18 @@
       <input type="text" class="text-input" id="specific-uuid" placeholder="e.g. 5e829546-97be-41e9-9c6a-c214dd001a5f" autocomplete="off" spellcheck="false">
     </div>
 
-    <div class="section-title" style="margin-top: 18px;">Status Panel</div>
+    <div class="section-title" style="margin-top: 18px;">Usage Level</div>
+    <div class="progress-container">
+      <div class="progress-header">
+        <span class="progress-label">Utilization:</span>
+        <span class="progress-value-label" id="utilization-val">0%</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="utilization-fill"></div>
+      </div>
+    </div>
+
+    <div class="section-title" style="margin-top: 14px;">Status Panel</div>
     <div class="status-panel">
       <div class="status-row">
         <span class="status-label">Next Alarm:</span>
