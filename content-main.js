@@ -40,12 +40,14 @@
         clonedResponse.json().then(data => {
           if (data && data.five_hour && data.five_hour.resets_at) {
             const resetsAt = data.five_hour.resets_at;
+            const utilization = data.five_hour.utilization || 0;
 
             // Dispatch a custom event to communicate with the isolated content script
             const event = new CustomEvent('ClaudeUsageIntercepted', {
               detail: {
                 organizationId,
-                resetsAt
+                resetsAt,
+                utilization
               }
             });
             window.dispatchEvent(event);

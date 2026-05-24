@@ -40,7 +40,7 @@ chrome.runtime.onStartup.addListener(() => {
  */
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'CLAUDE_USAGE_INTERCEPTED') {
-    const { organizationId, resetsAt } = message;
+    const { organizationId, resetsAt, utilization } = message;
 
     if (!organizationId || !resetsAt) {
       sendResponse({ status: 'ignored', error: 'Missing organizationId or resetsAt' });
@@ -48,7 +48,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     // Process and schedule the alarm
-    handleUsageLimitsIntercepted(organizationId, resetsAt)
+    handleUsageLimitsIntercepted(organizationId, resetsAt, utilization)
       .then(result => {
         sendResponse({ status: 'success', data: result });
       })
@@ -78,8 +78,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
  * 
  * @param {string} organizationId 
  * @param {string} resetsAt 
+ * @param {number} [utilization]
  */
-async function handleUsageLimitsIntercepted(organizationId, resetsAt) {
+async function handleUsageLimitsIntercepted(organizationId, resetsAt, utilization) {
   // Parse the timestamp
   const resetsAtMs = new Date(resetsAt).getTime();
   if (isNaN(resetsAtMs)) {
@@ -101,12 +102,18 @@ async function handleUsageLimitsIntercepted(organizationId, resetsAt) {
   console.log('[Claude Limits Auto-Reset] Intercepted Details saved to storage:', {
     organizationId,
     lastResetSeen: resetsAt,
+    utilization,
     scheduledAlarmTime: new Date(resetAlarmTimeMs).toLocaleString()
   });
 
-  // Case A: The reset timestamp is in the FUTURE (User is rate-limited)
-  if (resetsAtMs > now) {
-    console.log('[Claude Limits Auto-Reset] Smart Sync: Reset time is in the future. Adjusting alarm schedules...');
+  // Determine if the user is actively blocked/rate-limited.
+  // The user is rate-limited only if their utilization is 100% and resetsAt is in the future.
+  // If utilization < 100%, they are active and their limit is rolling, so we must continue polling.
+  const isRateLimited = (utilization === undefined || utilization >= 100.0) && (resetsAtMs > now);
+
+  // Case A: The user is actively rate-limited (Locked out)
+  if (isRateLimited) {
+    console.log('[Claude Limits Auto-Reset] Smart Sync: User is rate-limited. Pausing periodic polling...');
 
     // 1. Schedule the message trigger (1 minute after reset) if not executed already
     if (storage.lastResetExecuted !== resetsAt) {
@@ -127,15 +134,14 @@ async function handleUsageLimitsIntercepted(organizationId, resetsAt) {
     return { status: 'scheduled_future_reset', resetsAt, nextPollTimeMs };
   }
 
-  // Case B: The reset timestamp is in the PAST (User is NOT rate-limited)
-  console.log('[Claude Limits Auto-Reset] Smart Sync: Reset time is in the past. Ensuring periodic monitoring is active.');
+  // Case B: The user is NOT rate-limited (Active or Reset occurred)
+  console.log('[Claude Limits Auto-Reset] Smart Sync: User is active. Ensuring periodic monitoring is active.');
 
-  // 1. If we haven't executed this reset window yet, trigger it immediately
-  if (storage.lastResetExecuted !== resetsAt) {
+  // 1. If the reset timestamp is in the past and we haven't executed it yet, trigger it immediately
+  const isPastReset = resetsAtMs <= now;
+  if (isPastReset && storage.lastResetExecuted !== resetsAt) {
     console.log('[Claude Limits Auto-Reset] Past reset detected. Triggering immediate execution to start fresh window.');
     triggerSilentMessage(organizationId, resetsAt);
-  } else {
-    console.log('[Claude Limits Auto-Reset] Reset window already marked as executed. Skipping immediate trigger.');
   }
 
   // 2. Ensure recurring polling (every 30 minutes) is running to detect when the user next hits the limit
@@ -236,10 +242,11 @@ async function pollClaudeLimits() {
     }
 
     const resetsAt = usageData.five_hour.resets_at;
-    console.log('[Claude Limits Auto-Reset] Headless polling successfully retrieved resets_at:', resetsAt);
+    const utilization = usageData.five_hour.utilization || 0;
+    console.log('[Claude Limits Auto-Reset] Headless polling successfully retrieved resets_at:', resetsAt, 'utilization:', utilization);
 
     // Save sync details and schedule reset alarm
-    const result = await handleUsageLimitsIntercepted(organizationId, resetsAt);
+    const result = await handleUsageLimitsIntercepted(organizationId, resetsAt, utilization);
     
     await chrome.storage.local.set({
       sessionStatus: 'active',

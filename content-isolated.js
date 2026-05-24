@@ -7,18 +7,20 @@
 
 window.addEventListener('ClaudeUsageIntercepted', (event) => {
   if (event.detail && event.detail.organizationId && event.detail.resetsAt) {
-    const { organizationId, resetsAt } = event.detail;
+    const { organizationId, resetsAt, utilization } = event.detail;
 
     console.log('[Claude Limits Auto-Reset] Intercepted usage update:', {
       organizationId,
-      resetsAt
+      resetsAt,
+      utilization
     });
 
     // Send the message to the background service worker
     chrome.runtime.sendMessage({
       type: 'CLAUDE_USAGE_INTERCEPTED',
       organizationId,
-      resetsAt
+      resetsAt,
+      utilization
     }, (response) => {
       // Handle response or error if background script is not loaded
       if (chrome.runtime.lastError) {
