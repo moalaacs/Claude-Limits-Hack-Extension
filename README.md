@@ -15,6 +15,13 @@ This extension automates that 6 AM (or exact reset time) "Hi" message. It acts a
 
 ---
 
+## 🤫 The Irony
+This extension was developed using Claude.ai... to automatically bypass Claude.ai's own usage limits.
+
+![Using Claude to bypass Claude](./1752063556262_WXImx.PNG)
+
+---
+
 ## ✨ Features
 * **100% Smart Background Polling:** The background worker queries Claude's API every 30 minutes to check your limit status. If you are rate-limited, it intelligently pauses the periodic checks and schedules a single sync poll for 2 minutes after the limit resets, reducing redundant requests.
 * **On-Demand Synchronization:** Click "Sync Limits Now" in the extension popup to instantly refresh your session status and update scheduled reset alarms.
