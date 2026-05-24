@@ -16,7 +16,7 @@ This extension automates that 6 AM (or exact reset time) "Hi" message. It acts a
 ---
 
 ## 🤫 The Irony
-This extension was developed using Claude.ai... to automatically bypass Claude.ai's own usage limits.
+This extension was developed using Claude... to automatically bypass Claude's own usage limits.
 
 ![Using Claude to bypass Claude](./1752063556262_WXImx.PNG)
 
