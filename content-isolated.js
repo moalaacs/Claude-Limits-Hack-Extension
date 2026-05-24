@@ -15,20 +15,29 @@ window.addEventListener('ClaudeUsageIntercepted', (event) => {
       utilization
     });
 
-    // Send the message to the background service worker
-    chrome.runtime.sendMessage({
-      type: 'CLAUDE_USAGE_INTERCEPTED',
-      organizationId,
-      resetsAt,
-      utilization
-    }, (response) => {
-      // Handle response or error if background script is not loaded
-      if (chrome.runtime.lastError) {
-        console.warn('[Claude Limits Auto-Reset] Failed to send message to background worker:', chrome.runtime.lastError.message);
-      } else {
-        console.log('[Claude Limits Auto-Reset] Relayed usage details to background worker:', response);
+    // Send the message to the background service worker safely
+    try {
+      if (!chrome.runtime || !chrome.runtime.id) {
+        console.warn('[Claude Limits Auto-Reset] Extension context is invalidated. Please reload the tab.');
+        return;
       }
-    });
+
+      chrome.runtime.sendMessage({
+        type: 'CLAUDE_USAGE_INTERCEPTED',
+        organizationId,
+        resetsAt,
+        utilization
+      }, (response) => {
+        // Handle response or error if background script is not loaded
+        if (chrome.runtime.lastError) {
+          console.warn('[Claude Limits Auto-Reset] Failed to send message to background worker:', chrome.runtime.lastError.message);
+        } else {
+          console.log('[Claude Limits Auto-Reset] Relayed usage details to background worker:', response);
+        }
+      });
+    } catch (err) {
+      console.warn('[Claude Limits Auto-Reset] Context invalidated. Message skipped:', err.message);
+    }
   }
 });
 
