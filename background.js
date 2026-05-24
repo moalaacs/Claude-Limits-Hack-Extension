@@ -183,13 +183,15 @@ async function triggerSilentMessage(organizationId, resetsAt) {
     console.log(`[Claude Limits Auto-Reset] Configured to start a new chat: ${chatUuid}`);
   }
 
+  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
   const createChatUrl = `https://claude.ai/api/organizations/${organizationId}/chat_conversations`;
   const completionUrl = `https://claude.ai/api/organizations/${organizationId}/chat_conversations/${chatUuid}/completion`;
 
   const payload = {
     prompt: 'Hi',
     parent_message_uuid: parentMessageUuid,
-    timezone: 'Africa/Cairo',
+    timezone: userTimezone,
     model: 'claude-sonnet-4-6'
   };
 

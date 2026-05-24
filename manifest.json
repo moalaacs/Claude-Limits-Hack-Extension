@@ -3,6 +3,12 @@
   "name": "Claude Limits Auto-Reset",
   "version": "1.0.0",
   "description": "Automatically monitors Claude.ai usage limits and schedules a silent message trigger exactly 1 minute after limit resets.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "permissions": [
     "alarms",
     "storage",
@@ -21,14 +27,22 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://*.claude.ai/*"],
-      "js": ["content-main.js"],
+      "matches": [
+        "*://*.claude.ai/*"
+      ],
+      "js": [
+        "content-main.js"
+      ],
       "world": "MAIN",
       "run_at": "document_start"
     },
     {
-      "matches": ["*://*.claude.ai/*"],
-      "js": ["content-isolated.js"],
+      "matches": [
+        "*://*.claude.ai/*"
+      ],
+      "js": [
+        "content-isolated.js"
+      ],
       "run_at": "document_start"
     }
   ]
