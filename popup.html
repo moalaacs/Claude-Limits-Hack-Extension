@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Limits Auto-Reset</title>
+  <style>
+    /* Reset & Fonts */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body {
+      width: 360px;
+      padding: 16px;
+      background: linear-gradient(135deg, #09090e 0%, #121020 50%, #050508 100%);
+      color: #e2e8f0;
+      overflow-x: hidden;
+    }
+
+    /* Glassmorphic Container */
+    .container {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 18px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      padding-bottom: 12px;
+    }
+
+    .logo-area {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .logo-icon {
+      width: 24px;
+      height: 24px;
+      background: linear-gradient(135deg, #818cf8, #c084fc);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: #09090e;
+      font-size: 14px;
+      box-shadow: 0 0 10px rgba(129, 140, 248, 0.4);
+    }
+
+    h1 {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #e2e8f0 0%, #a78bfa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 20px;
+      font-weight: 500;
+      background: rgba(167, 139, 250, 0.15);
+      color: #c084fc;
+      border: 1px solid rgba(167, 139, 250, 0.2);
+    }
+
+    /* Configuration Form */
+    .section-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #94a3b8;
+      margin-bottom: 10px;
+    }
+
+    .option-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .option-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      padding: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .option-card:hover {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .option-card.active {
+      background: rgba(129, 140, 248, 0.06);
+      border-color: rgba(129, 140, 248, 0.35);
+      box-shadow: inset 0 0 8px rgba(129, 140, 248, 0.05);
+    }
+
+    .option-card input[type="radio"] {
+      margin-top: 3px;
+      accent-color: #818cf8;
+      cursor: pointer;
+    }
+
+    .option-details {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .option-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+
+    .option-desc {
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 2px;
+    }
+
+    /* Input Field Container */
+    .input-container {
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      margin-bottom: 0;
+    }
+
+    .input-container.visible {
+      max-height: 80px;
+      opacity: 1;
+      margin-bottom: 16px;
+    }
+
+    .text-input {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: #f8fafc;
+      font-size: 12px;
+      font-family: monospace;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .text-input:focus {
+      border-color: rgba(129, 140, 248, 0.6);
+      box-shadow: 0 0 8px rgba(129, 140, 248, 0.2);
+    }
+
+    /* Info & Status Area */
+    .status-panel {
+      background: rgba(0, 0, 0, 0.15);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 11px;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .status-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .status-label {
+      color: #64748b;
+    }
+
+    .status-value {
+      color: #cbd5e1;
+      font-weight: 500;
+    }
+
+    .status-value.success {
+      color: #34d399;
+    }
+
+    .status-value.failed {
+      color: #f87171;
+    }
+
+    /* Toast notification */
+    .toast {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(129, 140, 248, 0.95);
+      color: #ffffff;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo-area">
+        <div class="logo-icon">C</div>
+        <h1>Claude Limits</h1>
+      </div>
+      <div class="badge">V3 HEADLESS</div>
+    </header>
+
+    <div class="section-title">Trigger Destination</div>
+    
+    <div class="option-group">
+      <!-- Option: New Chat -->
+      <label class="option-card" id="card-new">
+        <input type="radio" name="chatMode" value="new" id="radio-new" checked>
+        <div class="option-details">
+          <span class="option-name">New Chat</span>
+          <span class="option-desc">Start a fresh conversation thread.</span>
+        </div>
+      </label>
+
+      <!-- Option: Specific Chat -->
+      <label class="option-card" id="card-specific">
+        <input type="radio" name="chatMode" value="specific" id="radio-specific">
+        <div class="option-details">
+          <span class="option-name">Specific Chat</span>
+          <span class="option-desc">Send to an existing conversation thread.</span>
+        </div>
+      </label>
+    </div>
+
+    <!-- Input for Specific Chat UUID -->
+    <div class="input-container" id="uuid-container">
+      <input type="text" class="text-input" id="specific-uuid" placeholder="e.g. 5e829546-97be-41e9-9c6a-c214dd001a5f" autocomplete="off" spellcheck="false">
+    </div>
+
+    <div class="section-title" style="margin-top: 18px;">Status Panel</div>
+    <div class="status-panel">
+      <div class="status-row">
+        <span class="status-label">Next Alarm:</span>
+        <span class="status-value" id="next-alarm">None Scheduled</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Last Status:</span>
+        <span class="status-value" id="last-status">Never Triggered</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Target ID:</span>
+        <span class="status-value" id="target-details" style="font-family: monospace; font-size: 10px;">New Chat</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Settings Saved</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
