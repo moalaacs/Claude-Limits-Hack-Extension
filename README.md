@@ -16,7 +16,7 @@ This extension automates that 6 AM (or exact reset time) "Hi" message. It acts a
 ---
 
 ## ✨ Features
-* **100% Headless Background Polling:** The background service worker queries Claude's API every 30 minutes to check your limit status without requiring you to open the site.
+* **100% Smart Background Polling:** The background worker queries Claude's API every 30 minutes to check your limit status. If you are rate-limited, it intelligently pauses the periodic checks and schedules a single sync poll for 2 minutes after the limit resets, reducing redundant requests.
 * **On-Demand Synchronization:** Click "Sync Limits Now" in the extension popup to instantly refresh your session status and update scheduled reset alarms.
 * **Passive Interception Fallback:** Injects a lightweight main-world content script to passively monitor limits when you browse Claude.ai, serving as a backup.
 * **Target Specific Conversations:** Toggle between starting a new conversation or targeting a specific thread UUID via the settings popup.

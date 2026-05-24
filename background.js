@@ -86,9 +86,8 @@ async function handleUsageLimitsIntercepted(organizationId, resetsAt) {
     throw new Error(`Invalid resets_at timestamp format: ${resetsAt}`);
   }
 
-  // Schedule alarm for exactly 1 minute (60,000 ms) after the limit resets
-  const alarmTimeMs = resetsAtMs + (60 * 1000);
   const now = Date.now();
+  const resetAlarmTimeMs = resetsAtMs + (60 * 1000); // Trigger 1 minute after reset time
 
   // Retrieve current execution records to avoid redundant requests for the same resetsAt window
   const storage = await chrome.storage.local.get(['lastResetSeen', 'lastResetExecuted']);
@@ -102,29 +101,52 @@ async function handleUsageLimitsIntercepted(organizationId, resetsAt) {
   console.log('[Claude Limits Auto-Reset] Intercepted Details saved to storage:', {
     organizationId,
     lastResetSeen: resetsAt,
-    scheduledAlarmTime: new Date(alarmTimeMs).toLocaleString()
+    scheduledAlarmTime: new Date(resetAlarmTimeMs).toLocaleString()
   });
 
-  // If the reset timestamp is identical to the one we already executed, skip scheduling
-  if (storage.lastResetExecuted === resetsAt) {
-    console.log('[Claude Limits Auto-Reset] Alarm skipped. Reset window already executed:', resetsAt);
-    return { status: 'already_executed', resetsAt };
+  // Case A: The reset timestamp is in the FUTURE (User is rate-limited)
+  if (resetsAtMs > now) {
+    console.log('[Claude Limits Auto-Reset] Smart Sync: Reset time is in the future. Adjusting alarm schedules...');
+
+    // 1. Schedule the message trigger (1 minute after reset) if not executed already
+    if (storage.lastResetExecuted !== resetsAt) {
+      await chrome.alarms.clear(LIMIT_RESET_ALARM_NAME);
+      chrome.alarms.create(LIMIT_RESET_ALARM_NAME, { when: resetAlarmTimeMs });
+      console.log(`[Claude Limits Auto-Reset] Scheduled silent trigger alarm '${LIMIT_RESET_ALARM_NAME}' for: ${new Date(resetAlarmTimeMs).toISOString()}`);
+    } else {
+      console.log('[Claude Limits Auto-Reset] Silent trigger skipped. Already executed for this window.');
+    }
+
+    // 2. Pause the 30-minute periodic polling and reschedule it to run exactly 2 minutes after reset
+    // (This acts as a one-shot alarm. Once it fires, it will query limits and automatically resume periodic polling)
+    const nextPollTimeMs = resetsAtMs + (2 * 60 * 1000);
+    await chrome.alarms.clear(POLLING_ALARM_NAME);
+    chrome.alarms.create(POLLING_ALARM_NAME, { when: nextPollTimeMs });
+    
+    console.log(`[Claude Limits Auto-Reset] Smart Sync: Paused 30-min polling. Next poll scheduled for: ${new Date(nextPollTimeMs).toISOString()}`);
+    return { status: 'scheduled_future_reset', resetsAt, nextPollTimeMs };
   }
 
-  // If the alarm target time is already in the past, or very close (e.g. less than 10 seconds in future),
-  // we trigger the message execution immediately to maximize the window.
-  if (alarmTimeMs <= now + 10000) {
-    console.log('[Claude Limits Auto-Reset] Reset time is in the past or imminent. Triggering execution immediately.');
+  // Case B: The reset timestamp is in the PAST (User is NOT rate-limited)
+  console.log('[Claude Limits Auto-Reset] Smart Sync: Reset time is in the past. Ensuring periodic monitoring is active.');
+
+  // 1. If we haven't executed this reset window yet, trigger it immediately
+  if (storage.lastResetExecuted !== resetsAt) {
+    console.log('[Claude Limits Auto-Reset] Past reset detected. Triggering immediate execution to start fresh window.');
     triggerSilentMessage(organizationId, resetsAt);
-    return { status: 'executed_immediately', alarmTimeMs };
+  } else {
+    console.log('[Claude Limits Auto-Reset] Reset window already marked as executed. Skipping immediate trigger.');
   }
 
-  // Otherwise, clear any old alarm and schedule a new one
-  await chrome.alarms.clear(LIMIT_RESET_ALARM_NAME);
-  chrome.alarms.create(LIMIT_RESET_ALARM_NAME, { when: alarmTimeMs });
-  
-  console.log(`[Claude Limits Auto-Reset] Scheduled alarm '${LIMIT_RESET_ALARM_NAME}' for: ${new Date(alarmTimeMs).toISOString()}`);
-  return { status: 'scheduled', alarmTimeMs };
+  // 2. Ensure recurring polling (every 30 minutes) is running to detect when the user next hits the limit
+  const activePollAlarm = await chrome.alarms.get(POLLING_ALARM_NAME);
+  if (!activePollAlarm || !activePollAlarm.periodInMinutes) {
+    await chrome.alarms.clear(POLLING_ALARM_NAME);
+    chrome.alarms.create(POLLING_ALARM_NAME, { periodInMinutes: 30 });
+    console.log('[Claude Limits Auto-Reset] Smart Sync: Resumed 30-minute periodic polling.');
+  }
+
+  return { status: 'resumed_periodic_polling', resetsAt };
 }
 
 /**
