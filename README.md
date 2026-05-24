@@ -22,6 +22,7 @@ This extension automates that 6 AM (or exact reset time) "Hi" message. It acts a
 * **Target Specific Conversations:** Toggle between starting a new conversation or targeting a specific thread UUID via the settings popup.
 * **Precision Scheduling:** Uses Chrome's native `chrome.alarms` API to trigger the silent message exactly 1 minute after your limits reset.
 * **Session Cookie Authentication:** Automatically inherits active browser session cookies securely using `credentials: 'include'`.
+* **Desktop Notifications:** Fires native Chrome notifications on successful headless reset executions or if auth session expires.
 * **Premium Glassmorphic Dashboard:** Built-in settings popup with live statuses showing session status, next reset timer, and last trigger logs.
 
 ---

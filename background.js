@@ -420,6 +420,12 @@ async function triggerSilentMessage(organizationId, resetsAt) {
       }
     });
 
+    // Notify user of successful window refresh
+    showNotification(
+      'Claude Limits Auto-Reset',
+      'Silent message sent successfully! Started a new 5-hour usage window.'
+    );
+
   } catch (error) {
     console.error('[Claude Limits Auto-Reset] Failed to execute silent message:', error);
 
@@ -431,5 +437,24 @@ async function triggerSilentMessage(organizationId, resetsAt) {
         error: error.message
       }
     });
+
+    // Notify user of execution failure
+    showNotification(
+      'Claude Limits Auto-Reset Error',
+      `Failed to execute auto-reset trigger: ${error.message}`
+    );
   }
+}
+
+/**
+ * Helper to display native Chrome desktop notifications.
+ */
+function showNotification(title, message) {
+  chrome.notifications.create(crypto.randomUUID(), {
+    type: 'basic',
+    iconUrl: 'icons/icon128.png',
+    title: title,
+    message: message,
+    priority: 2
+  });
 }

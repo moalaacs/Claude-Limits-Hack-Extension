@@ -13,7 +13,8 @@
     "alarms",
     "storage",
     "webRequest",
-    "cookies"
+    "cookies",
+    "notifications"
   ],
   "host_permissions": [
     "*://*.claude.ai/*"
