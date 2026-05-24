@@ -204,12 +204,59 @@
       font-weight: 500;
     }
 
-    .status-value.success {
+    .status-value.success, .status-value.active-session {
       color: #34d399;
     }
 
-    .status-value.failed {
+    .status-value.failed, .status-value.expired-session {
       color: #f87171;
+    }
+
+    /* Sync Button */
+    .btn-sync {
+      width: 100%;
+      background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+      border: none;
+      border-radius: 10px;
+      color: #ffffff;
+      padding: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 14px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+      outline: none;
+    }
+
+    .btn-sync:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(99, 102, 241, 0.35);
+      filter: brightness(1.08);
+    }
+
+    .btn-sync:active {
+      transform: translateY(1px);
+    }
+
+    .sync-icon {
+      width: 13px;
+      height: 13px;
+      stroke: currentColor;
+      transition: transform 0.6s ease;
+    }
+
+    .btn-sync.loading .sync-icon {
+      animation: spin 1.2s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
     }
 
     /* Toast notification */
@@ -284,10 +331,26 @@
         <span class="status-value" id="last-status">Never Triggered</span>
       </div>
       <div class="status-row">
+        <span class="status-label">Session:</span>
+        <span class="status-value" id="session-status">Checking...</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Last Synced:</span>
+        <span class="status-value" id="last-sync">Never</span>
+      </div>
+      <div class="status-row" style="margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.04); padding-top: 4px;">
         <span class="status-label">Target ID:</span>
         <span class="status-value" id="target-details" style="font-family: monospace; font-size: 10px;">New Chat</span>
       </div>
     </div>
+
+    <!-- Background Sync Action Button -->
+    <button class="btn-sync" id="btn-sync">
+      <svg class="sync-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+      </svg>
+      Sync Limits Now
+    </button>
   </div>
 
   <div class="toast" id="toast">Settings Saved</div>

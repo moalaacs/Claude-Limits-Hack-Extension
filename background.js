@@ -9,17 +9,34 @@
  * 4. Execute a silent, headless POST fetch to Claude to send the "Hi" message when the alarm triggers.
  */
 
-// Alarm name constant to ensure we use a single scheduled alarm instance
+// Alarm name constants to ensure we use single scheduled alarm instances
 const LIMIT_RESET_ALARM_NAME = 'ClaudeLimitResetAlarm';
+const POLLING_ALARM_NAME = 'ClaudeLimitsPollAlarm';
 
 // Initialize extension state/listeners
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('[Claude Limits Auto-Reset] Extension installed and background worker active.');
+  console.log('[Claude Limits Auto-Reset] Extension installed. Registering background listeners...');
+  
+  // Schedule usage limits polling to run every 30 minutes in the background
+  chrome.alarms.create(POLLING_ALARM_NAME, { periodInMinutes: 30 });
+  
+  // Run an initial check immediately on install
+  pollClaudeLimits().catch(err => {
+    console.debug('[Claude Limits Auto-Reset] Initial limits check failed (likely logged out):', err.message);
+  });
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  console.log('[Claude Limits Auto-Reset] Browser startup detected. Querying usage limits...');
+  
+  // Run a startup check immediately
+  pollClaudeLimits().catch(err => {
+    console.debug('[Claude Limits Auto-Reset] Startup limits check failed:', err.message);
+  });
 });
 
 /**
- * Listener for messages from the content script.
- * Expects message type: 'CLAUDE_USAGE_INTERCEPTED'
+ * Listener for messages from content scripts or popup.
  */
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'CLAUDE_USAGE_INTERCEPTED') {
@@ -40,8 +57,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ status: 'error', error: error.message });
       });
 
-    // Return true to indicate we will send response asynchronously
-    return true;
+    return true; // Send response asynchronously
+  }
+
+  if (message.type === 'SYNC_LIMITS_NOW') {
+    pollClaudeLimits()
+      .then(result => {
+        sendResponse({ status: 'success', data: result });
+      })
+      .catch(error => {
+        sendResponse({ status: 'error', error: error.message });
+      });
+
+    return true; // Send response asynchronously
   }
 });
 
@@ -87,7 +115,6 @@ async function handleUsageLimitsIntercepted(organizationId, resetsAt) {
   // we trigger the message execution immediately to maximize the window.
   if (alarmTimeMs <= now + 10000) {
     console.log('[Claude Limits Auto-Reset] Reset time is in the past or imminent. Triggering execution immediately.');
-    // Execute immediately in a non-blocking fashion
     triggerSilentMessage(organizationId, resetsAt);
     return { status: 'executed_immediately', alarmTimeMs };
   }
@@ -101,11 +128,11 @@ async function handleUsageLimitsIntercepted(organizationId, resetsAt) {
 }
 
 /**
- * Listen for the alarm trigger
+ * Listen for the alarm triggers
  */
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === LIMIT_RESET_ALARM_NAME) {
-    console.log(`[Claude Limits Auto-Reset] Alarm '${alarm.name}' triggered.`);
+    console.log(`[Claude Limits Auto-Reset] Limit reset alarm '${alarm.name}' triggered.`);
     
     // Retrieve stored organization details and last seen resetsAt
     const storage = await chrome.storage.local.get(['organizationId', 'lastResetSeen', 'lastResetExecuted']);
@@ -123,8 +150,98 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 
     // Execute the action
     await triggerSilentMessage(storage.organizationId, storage.lastResetSeen);
+  } else if (alarm.name === POLLING_ALARM_NAME) {
+    console.log(`[Claude Limits Auto-Reset] Polling alarm '${alarm.name}' triggered. Running checks...`);
+    pollClaudeLimits().catch(err => {
+      console.debug('[Claude Limits Auto-Reset] Background poll execution failed:', err.message);
+    });
   }
 });
+
+/**
+ * Polls Claude's internal APIs in the background to retrieve current limits and schedule alarms.
+ * Runs headlessly without needing any tabs open by utilizing browser cookies.
+ */
+async function pollClaudeLimits() {
+  console.log('[Claude Limits Auto-Reset] Polling Claude limits...');
+  try {
+    // Step 1: Retrieve organizations list (also verifies active session)
+    const orgsUrl = 'https://claude.ai/api/organizations';
+    const orgsResponse = await fetch(orgsUrl, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'accept': 'application/json'
+      }
+    });
+
+    if (orgsResponse.status === 401 || orgsResponse.status === 403) {
+      await chrome.storage.local.set({
+        sessionStatus: 'logged_out',
+        lastSyncTime: new Date().toISOString()
+      });
+      throw new Error('User is logged out / unauthorized on Claude.ai');
+    }
+
+    if (!orgsResponse.ok) {
+      throw new Error(`Failed to fetch organizations. Status: ${orgsResponse.status}`);
+    }
+
+    const orgs = await orgsResponse.json();
+    if (!Array.isArray(orgs) || orgs.length === 0 || !orgs[0].uuid) {
+      throw new Error('No organizations found in user account');
+    }
+
+    const organizationId = orgs[0].uuid;
+
+    // Step 2: Fetch usage limits for the active organization
+    const usageUrl = `https://claude.ai/api/organizations/${organizationId}/usage`;
+    const usageResponse = await fetch(usageUrl, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'accept': 'application/json'
+      }
+    });
+
+    if (!usageResponse.ok) {
+      throw new Error(`Failed to fetch usage limits. Status: ${usageResponse.status}`);
+    }
+
+    const usageData = await usageResponse.json();
+    if (!usageData || !usageData.five_hour || !usageData.five_hour.resets_at) {
+      throw new Error('Invalid usage API response structure');
+    }
+
+    const resetsAt = usageData.five_hour.resets_at;
+    console.log('[Claude Limits Auto-Reset] Headless polling successfully retrieved resets_at:', resetsAt);
+
+    // Save sync details and schedule reset alarm
+    const result = await handleUsageLimitsIntercepted(organizationId, resetsAt);
+    
+    await chrome.storage.local.set({
+      sessionStatus: 'active',
+      lastSyncTime: new Date().toISOString(),
+      lastSyncError: null
+    });
+
+    return { organizationId, resetsAt, alarmResult: result };
+
+  } catch (error) {
+    console.error('[Claude Limits Auto-Reset] Headless polling error:', error.message);
+    
+    await chrome.storage.local.set({
+      lastSyncTime: new Date().toISOString(),
+      lastSyncError: error.message
+    });
+    
+    if (error.message.includes('logged out') || error.message.includes('unauthorized') || error.message.includes('401') || error.message.includes('403')) {
+      await chrome.storage.local.set({ sessionStatus: 'logged_out' });
+    }
+    
+    throw error;
+  }
+}
 
 /**
  * Silently sends the "Hi" message to Claude.ai to start a new chat conversation.

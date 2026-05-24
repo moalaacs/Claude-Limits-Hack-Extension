@@ -16,12 +16,13 @@ This extension automates that 6 AM (or exact reset time) "Hi" message. It acts a
 ---
 
 ## ✨ Features
-* **100% Headless Execution:** No DOM scraping, no popup windows, and no new tabs taking focus. It runs silently in the background.
-* **Target Specific Conversations:** Select between starting a new chat or continuing an existing conversation thread (by entering its UUID) via a built-in UI.
-* **Smart Network Interception:** Bypasses Manifest V3 restrictions by injecting a lightweight script into the `MAIN` world to intercept `window.fetch` responses and parse the exact `resets_at` timestamp directly from Claude's internal API.
-* **Precision Scheduling:** Uses Chrome's native `chrome.alarms` API to trigger exactly 1 minute after your limit officially resets.
-* **Session Cookie Authentication:** Utilizes your active browser session (`credentials: 'include'`) to authenticate requests securely.
-* **Premium Glassmorphic Dashboard:** Built-in settings popup with live statuses showing the next scheduled reset alarm and details about the last executed trigger.
+* **100% Headless Background Polling:** The background service worker queries Claude's API every 30 minutes to check your limit status without requiring you to open the site.
+* **On-Demand Synchronization:** Click "Sync Limits Now" in the extension popup to instantly refresh your session status and update scheduled reset alarms.
+* **Passive Interception Fallback:** Injects a lightweight main-world content script to passively monitor limits when you browse Claude.ai, serving as a backup.
+* **Target Specific Conversations:** Toggle between starting a new conversation or targeting a specific thread UUID via the settings popup.
+* **Precision Scheduling:** Uses Chrome's native `chrome.alarms` API to trigger the silent message exactly 1 minute after your limits reset.
+* **Session Cookie Authentication:** Automatically inherits active browser session cookies securely using `credentials: 'include'`.
+* **Premium Glassmorphic Dashboard:** Built-in settings popup with live statuses showing session status, next reset timer, and last trigger logs.
 
 ---
 

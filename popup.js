@@ -1,7 +1,7 @@
 /**
  * popup.js
  * Controls the popup user interface, loading configuration from chrome.storage
- * and showing current alarm status and execution logs.
+ * and showing current alarm status, login session validation, and execution logs.
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -14,16 +14,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   const labelNextAlarm = document.getElementById('next-alarm');
   const labelLastStatus = document.getElementById('last-status');
+  const labelSessionStatus = document.getElementById('session-status');
+  const labelLastSync = document.getElementById('last-sync');
   const labelTargetDetails = document.getElementById('target-details');
+  const btnSync = document.getElementById('btn-sync');
   const toast = document.getElementById('toast');
 
   let toastTimeout = null;
 
-  // 1. Load configuration and state
+  // 1. Load configuration and state from storage
   const config = await chrome.storage.local.get([
     'chatMode', 
     'specificChatUuid', 
-    'lastExecutionStatus'
+    'lastExecutionStatus',
+    'sessionStatus',
+    'lastSyncTime'
   ]);
 
   // Set default values if not defined
@@ -46,6 +51,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 2. Render dynamic status details
   updateStatusDisplay(config.lastExecutionStatus, mode, specificUuid);
+  updateSessionDisplay(config.sessionStatus, config.lastSyncTime);
   renderNextAlarm();
 
   // 3. Set up event listeners for inputs
@@ -74,6 +80,45 @@ document.addEventListener('DOMContentLoaded', async () => {
       radioSpecific.checked = true;
       handleModeChange('specific');
     }
+  });
+
+  // 4. Sync button handler (requests background worker to poll limits)
+  btnSync.addEventListener('click', () => {
+    btnSync.classList.add('loading');
+    btnSync.disabled = true;
+
+    chrome.runtime.sendMessage({ type: 'SYNC_LIMITS_NOW' }, async (response) => {
+      btnSync.classList.remove('loading');
+      btnSync.disabled = false;
+
+      if (chrome.runtime.lastError) {
+        showToast('Sync failed: service worker unavailable');
+        console.error('[Claude Limits Auto-Reset] Sync error:', chrome.runtime.lastError.message);
+        return;
+      }
+
+      // Reload fresh statuses from storage
+      const freshConfig = await chrome.storage.local.get([
+        'sessionStatus',
+        'lastSyncTime',
+        'lastExecutionStatus'
+      ]);
+
+      updateSessionDisplay(freshConfig.sessionStatus, freshConfig.lastSyncTime);
+      updateStatusDisplay(
+        freshConfig.lastExecutionStatus, 
+        radioSpecific.checked ? 'specific' : 'new', 
+        specificUuidInput.value.trim()
+      );
+      renderNextAlarm();
+
+      if (response && response.status === 'success') {
+        showToast('Limits synchronized');
+      } else {
+        const errorMsg = response ? response.error : 'Unknown error';
+        showToast(`Sync failed: ${errorMsg}`);
+      }
+    });
   });
 
   /**
@@ -138,6 +183,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else {
       labelLastStatus.textContent = 'Never Triggered';
       labelLastStatus.className = 'status-value';
+    }
+  }
+
+  /**
+   * Render user's active session authentication state
+   */
+  function updateSessionDisplay(status, lastSync) {
+    if (status === 'active') {
+      labelSessionStatus.className = 'status-value active-session';
+      labelSessionStatus.textContent = 'Active (Logged In)';
+    } else if (status === 'logged_out') {
+      labelSessionStatus.className = 'status-value expired-session';
+      labelSessionStatus.textContent = 'Logged Out';
+    } else {
+      labelSessionStatus.className = 'status-value';
+      labelSessionStatus.textContent = 'Unknown (Run Sync)';
+    }
+
+    if (lastSync) {
+      labelLastSync.textContent = new Date(lastSync).toLocaleTimeString();
+    } else {
+      labelLastSync.textContent = 'Never';
     }
   }
 
